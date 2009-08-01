@@ -1,4 +1,4 @@
-This is a CLIPS (http://clipsrules.sourceforge.net/rule) based system
+This is a CLIPS (http://clipsrules.sourceforge.net/) rule based system
 that plays white king-rook against black king endgame.  To start a
 game, after loading chessl.clp, use (start-game).  Playing is pretty
 self-explanatory.  The idea is not to do extensive search but use as
