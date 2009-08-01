@@ -1,3 +1,7 @@
+;;; CLIPS rule based system playing chess endgame
+;;   white rook and king against black king
+;;  by Andrey Kotlarski m00naticus@gmail.com
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; deftemplates
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
