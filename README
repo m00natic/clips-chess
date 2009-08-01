@@ -1,10 +1,15 @@
 This is a CLIPS (http://clipsrules.sourceforge.net/) rule based system
-that plays white king-rook against black king endgame.  To start a
-game, after loading chessl.clp, use (start-game).  Playing is pretty
+that plays white king-rook against black king chess endgame.  To start
+a game, after loading chess.clp, use (start-game).  Playing is pretty
 self-explanatory.  The idea is not to do extensive search but use as
 humane rules as possible.  Indeed, search goes as deep as 2 half-moves
-at worst (mate situations) and rules are pretty close to what an
-average player does in such endgame.  Understandably, not always does
-the system find moves that lead to fastest mate.  However, most often
-it finds some best move (or at least close).  As far as tested, it
-always manages to checkmate.
+at worst (mate situations) without even looking at all possible moves
+and rules are pretty close to how an average player would reason in
+such a simple endgame.  Understandably, not always does the system
+find optimal move that leads to fastest mate.  However, most often it
+finds some best move (or at least close).  As far as tested, it always
+manages to checkmate.
+Very few of the functions have side effects.  Realization has obvious
+weaknesses like different rules computing same results in LHS and even
+rules that invoke same functions in LHS and RHS.  However, at least on
+8x8 board, performance is not a problem.
