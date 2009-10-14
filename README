@@ -7,8 +7,10 @@ at worst (mate situations) without even looking at all possible moves
 and rules are pretty close to how an average player would reason in
 such a simple endgame.  Understandably, not always does the system
 find optimal move that leads to fastest mate.  However, most often it
-finds some best move (or at least close).  As far as tested, it always
-manages to checkmate.
+finds some at least good enough move.  There is a parameter ?*N* which
+determines size of board.  As far as tested, it always manages to
+checkmate on boards bigger than 5x5.  However, it's been mainly tested
+on 8x8.
 Very few of the functions have side effects.  Realization has obvious
 weaknesses like different rules computing same results in LHS and even
 rules that invoke same functions in LHS and RHS.  However, at least on
