@@ -199,13 +199,13 @@ the chess board *N* x *N*."
 (deffunction find-move-in-sequence (?v ?h $?moves)
   "Determine whether given coordinates are present within
 list of moves."
-  (if (= (length$ ?moves) 0) then return FALSE)
-  (bind ?i 1)
-  (while (and (>= (length$ ?moves) (* ?i 2))
-	      (or (<> ?v (nth$ (- (* ?i 2) 1) ?moves))
-		  (<> ?h (nth$ (* ?i 2) ?moves))))
-    do (bind ?i (+ ?i 1)))
-  (>= (length$ ?moves) (* ?i 2)))
+  (if (= (length$ ?moves) 0)
+      then return FALSE
+      else (or (and (= ?v (nth$ 1 ?moves))
+		    (= ?h (nth$ 2 ?moves)))
+	       (find-move-in-sequence ?v ?h
+				      (subseq$ ?moves 3
+					       (length$ ?moves))))))
 
 (deffunction on-edge (?v ?h)
   "Check whether given coordinates correspond to an edge square."
@@ -278,23 +278,22 @@ is not nearby."
 
 (deffunction king-defending-moves (?wrv ?wrh $?wk-moves)
   "Filter such moves that are within 1 square of white rook."
-  (loop-for-count (?curr 1 (div (length$ ?wk-moves) 2)) do
-		  (if (or (> (abs (- (nth$ (- (* ?curr 2) 1)
-					   ?wk-moves) ?wrv))
-			     1)
-			  (> (abs (- (nth$ (* ?curr 2) ?wk-moves)
-				     ?wrh))
-			     1))
-		      then (bind ?wk-moves (replace$ ?wk-moves
-						     (- (* ?curr 2) 1)
-						     (* ?curr 2)
-						     0 0))))
-  (delete-member$ ?wk-moves 0))
+  (if (= (length$ ?wk-moves) 0)
+      then (create$)
+      else
+      (create$ (if (and (< (abs (- (nth$ 1 ?wk-moves) ?wrv)) 2)
+			(< (abs (- (nth$ 2 ?wk-moves) ?wrh)) 2))
+		   then (create$ (nth$ 1 ?wk-moves)
+				 (nth$ 2 ?wk-moves))
+		   else (create$))
+	       (king-defending-moves ?wrv ?wrh
+				     (subseq$ ?wk-moves 3
+					      (length$ ?wk-moves))))))
 
 (deffunction check-white-king-moves (?wkv ?wkh ?wrv ?wrh ?bkv ?bkh)
   "Check possible white king moves
 restricted by black king or rook if nearby.
-If rook is attacked - filter only defending moves if such."
+If rook is attacked - leave only defending moves if such."
   (bind ?wk-moves (king-moves ?wkv ?wkh))
   (if (and (< (abs (- ?bkh ?wkh)) 3) (< (abs (- ?bkv ?wkv)) 3))
       then (bind ?wk-moves (restrict-moves ?bkv ?bkh "king"
@@ -380,29 +379,18 @@ when white king is on the same vertical or horizontal."
 (deffunction secure-rook-moves (?wkv ?wkh ?bkv ?bkh $?moves)
   "Filter possible rook moves which are safe - either not attacked by
 black king or defended by white king."
-  (bind ?ret-moves (create$))
-  (loop-for-count (?curr 1 (div (length$ ?moves) 2)) do
-		  (if (or (> (abs (- ?bkv (nth$ (- (* 2 ?curr) 1)
-						?moves)))
-			     1)
-			  (> (abs (- ?bkh (nth$ (* 2 ?curr)
-						?moves)))
-			     1)
-			  (and (< (abs (- ?wkv (nth$ (- (* 2 ?curr) 1)
-						     ?moves)))
-				  2)
-			       (< (abs (- ?wkh (nth$ (* 2 ?curr)
-						     ?moves)))
-				  2)))
-		      then (bind ?ret-moves (insert$ ?ret-moves 1
-						     (create$
-						      (nth$
-						       (- (* 2 ?curr) 1)
-						       ?moves)
-						      (nth$
-						       (* 2 ?curr)
-						       ?moves))))))
-  ?ret-moves)
+  (if (= (length$ ?moves) 0)
+      then (create$)
+      else
+      (create$ (if (or (> (abs (- ?bkv (nth$ 1 ?moves))) 1)
+		       (> (abs (- ?bkh (nth$ 2 ?moves))) 1)
+		       (and (< (abs (- ?wkv (nth$ 1 ?moves))) 2)
+			    (< (abs (- ?wkh (nth$ 2 ?moves))) 2)))
+		   then (create$ (nth$ 1 ?moves) (nth$ 2 ?moves))
+		   else (create$))
+	       (secure-rook-moves ?wkv ?wkh ?bkv ?bkh
+				  (subseq$ ?moves 3
+					   (length$ ?moves))))))
 
 (deffunction plausible-rook-moves (?wkv ?wkh ?bkv ?bkh $?moves)
   "Filter plausible rook moves - away from black king or at least as
@@ -433,18 +421,23 @@ close to the white king."
 
 (deffunction possible-rook-moves (?wkv ?wkh ?wrv ?wrh ?bkv ?bkh)
   "Find all possible (not plausible!) rook moves."
-  (bind ?wr-moves (rook-moves ?wrv ?wrh))
-  (if (or (= ?wkv ?wrv) (= ?wkh ?wrh)) then
-    (bind ?wr-moves (restrict-rook ?wkv ?wkh ?wrv ?wrh ?wr-moves)))
-  ?wr-moves)
+  (if (or (= ?wkv ?wrv) (= ?wkh ?wrh))
+      then (restrict-rook ?wkv ?wkh ?wrv ?wrh (rook-moves ?wrv ?wrh))
+      else (rook-moves ?wrv ?wrh)))
 
 (deffunction check-rook-moves (?wkv ?wkh ?wrv ?wrh ?bkv ?bkh)
   "Return all plausible white rook moves."
-  (bind ?wr-moves (possible-rook-moves ?wkv ?wkh ?wrv ?wrh ?bkv ?bkh))
-  (if (or (< (abs (- ?bkh ?wrh)) 2) (< (abs (- ?bkv ?wkv)) 2)) then
-    (bind ?wr-moves (secure-rook-moves ?wkv ?wkh ?bkv ?bkh
-				       ?wr-moves)))
-  (plausible-rook-moves ?wkv ?wkh ?bkv ?bkh ?wr-moves))
+  (plausible-rook-moves ?wkv ?wkh ?bkv ?bkh
+			(if (or (< (abs (- ?bkh ?wrh)) 2)
+				(< (abs (- ?bkv ?wkv)) 2))
+			    then (secure-rook-moves ?wkv ?wkh
+						    ?bkv ?bkh
+						    (possible-rook-moves ?wkv ?wkh
+									 ?wrv ?wrh
+									 ?bkv ?bkh))
+			    else (possible-rook-moves ?wkv ?wkh
+						      ?wrv ?wrh
+						      ?bkv ?bkh))))
 
 (deffunction check-black-moves (?wkv ?wkh ?wrv ?wrh ?bkv ?bkh)
   "Return possible moves by black king by restricting it by white king
@@ -454,7 +447,7 @@ and white rook."
       then (bind ?bk-moves (restrict-moves ?wkv ?wkh "king"
 					   ?bk-moves)))
   (if (or (< (abs (- ?bkh ?wrh)) 2) (< (abs (- ?bkv ?wrv)) 2))
-      then	    ; (bind ?bk-moves (restrict-moves ?wrv ?wrh "rook"
+      then	  ; (bind ?bk-moves (restrict-moves ?wrv ?wrh "rook"))
     (bind ?rook-moves (possible-rook-moves ?wkv ?wkh ?wrv ?wrh
 					   ?bkv ?bkh))
     (bind ?i 1)
@@ -471,12 +464,12 @@ and white rook."
 (deffunction play-only-black-move (?wkv ?wkh ?wrv ?wrh ?bkv ?bkh)
   "Play only possible black king move."
   (bind ?moves (check-black-moves ?wkv ?wkh ?wrv ?wrh ?bkv ?bkh))
-  (if (= (length$ ?moves) 2) then
-    (assert (play-move (piece king) (colour black)
-		       (vertical (nth$ 1 ?moves))
-		       (horizontal (nth$ 2 ?moves))))
-    (return TRUE))
-  FALSE)
+  (if (= (length$ ?moves) 2)
+      then (assert (play-move (piece king) (colour black)
+			      (vertical (nth$ 1 ?moves))
+			      (horizontal (nth$ 2 ?moves))))
+      TRUE
+      else FALSE))
 
 (deffunction king-against-king (?wkv ?wkh ?bkv ?bkh)
   "Return number of squares that white king takes from black
@@ -544,7 +537,7 @@ of unattacked squares."
   (bind ?estimate (div (length$ (find-region ?wkv ?wkh ?wrv ?wrh
 					     ?bkv ?bkh))
 		       2))
-  (if (= ?estimate 1) then (return 50)) ;to avoid stalemate
+  (if (= ?estimate 1) then (return (* ?*N* ?*N*))) ;to avoid stalemate
   ;;  (bind ?estimate (- ?estimate
   ;;		     (* (length$ (check-white-king-moves ?wkv ?wkh ?wrv ?wrh
   ;;							 ?bkv ?bkh)) 7)))
@@ -553,14 +546,13 @@ of unattacked squares."
   (bind ?wr-bk-dist (get-distance ?wrv ?wrh ?bkv ?bkh))
   (bind ?wr-wk-dist (get-distance ?wrv ?wrh ?wkv ?wkh))
   (bind ?diff (- ?wr-wk-dist ?wr-bk-dist))
-  (if (> ?diff 0) ;if rook is closer to black king...
-      then ;the closer the worse
-    (bind ?estimate (+ ?estimate (* ?wr-bk-dist (div ?*N* 2))
-		       (* ?diff (div ?*N* 2))))
+  (if (> ?diff 0)		   ;if rook is closer to black king...
+      then			   ;the closer the worse
+    (+ ?estimate (* ?wr-bk-dist (div ?*N* 2))
+       (* ?diff (div ?*N* 2)))
     else ;else - at least as close to white king, award nearness to kings
-    (bind ?estimate (+ ?estimate (- ?wr-bk-dist ?*N*)
-		       (- ?wr-wk-dist ?*N*))))
-  ?estimate)
+    (+ ?estimate (- ?wr-bk-dist ?*N*)
+       (- ?wr-wk-dist ?*N*))))
 
 (deffunction find-best-white-king-move (?wkv ?wkh ?wrv ?wrh ?bkv ?bkh)
   "Find best possible move for white king - one that is closer to
@@ -690,12 +682,12 @@ Return best rook move only if it is better than the best king move."
 
 (deffunction enter-black-move (?wkv ?wkh ?wrv ?wrh ?bkv ?bkh)
   "Enter black king move, on errors print a list of possible moves."
-  (bind ?moves (check-black-moves ?wkv ?wkh ?wrv ?wrh ?bkv ?bkh))
   (printout t crlf)
   (if (not (and
 	    (bind ?v (read-pos "black king vertical"))
 	    (bind ?h (read-pos "black king horizontal"))))
       then (return FALSE))
+  (bind ?moves (check-black-moves ?wkv ?wkh ?wrv ?wrh ?bkv ?bkh))
   (while (not (find-move-in-sequence ?v ?h ?moves)) do
 	 (printout t "Incorrect move! Available squares are ")
 	 (loop-for-count (?i 1 (div (length$ ?moves) 2))
@@ -706,7 +698,7 @@ Return best rook move only if it is better than the best king move."
 	 (if (not (and
 		   (bind ?v (read-pos "black king vertical"))
 		   (bind ?h (read-pos "black king horizontal"))))
-	     then (return FLASE)))
+	     then (return FALSE)))
   (assert (play-move (piece king) (colour black)
 		     (vertical ?v) (horizontal ?h)))
   TRUE)
@@ -771,11 +763,9 @@ Return best rook move only if it is better than the best king move."
 	  (horizontal ?bkh))
   =>
   (if (check-for-mate ?wkv ?wkh ?wrv ?wrh ?bkv ?bkh)
-      then
-    (printout t "#" crlf)
-    (reset)
-    else
-    (modify ?s (value black-move))))
+      then (printout t "#" crlf)
+      (reset)
+      else (modify ?s (value black-move))))
 
 (defrule black-only-move
   "Check and play black king move if there is a single possibility."
@@ -842,8 +832,8 @@ corner and there is king opposition) - check if such."
 	  (horizontal ?wrh))
   (figure (sortof king) (colour black) (vertical ?bkv)
 	  (horizontal ?bkh))
-  (test (in-corner ?bkv ?bkh))
-  (test (> (king-against-king ?wkv ?wkh ?bkv ?bkh) 1))
+  (test (and (in-corner ?bkv ?bkh)
+	     (> (king-against-king ?wkv ?wkh ?bkv ?bkh) 1)))
   =>
   (if (search-mate ?wkv ?wkh ?wrv ?wrh ?bkv ?bkh)
       then (modify ?s (value white-move-done))
@@ -859,8 +849,9 @@ edge and there is full king opposition) - search for mate."
 	  (horizontal ?wrh))
   (figure (sortof king) (colour black) (vertical ?bkv)
 	  (horizontal ?bkh))
-  (test (> (king-against-king ?wkv ?wkh ?bkv ?bkh) 2))
-  (test (and (on-edge ?bkv ?bkh) (not (on-edge ?wkv ?wkh))))
+  (test (and (> (king-against-king ?wkv ?wkh ?bkv ?bkh) 2)
+	     (on-edge ?bkv ?bkh)
+	     (not (on-edge ?wkv ?wkh))))
   =>
   (if (search-mate ?wkv ?wkh ?wrv ?wrh ?bkv ?bkh)
       then (modify ?s (value white-move-done))
@@ -889,9 +880,9 @@ edge and there is full king opposition) - search for mate."
 	  (horizontal ?wrh))
   (figure (sortof king) (colour black) (vertical ?bkv)
 	  (horizontal ?bkh))
-  (test (> (king-against-king ?wkv ?wkh ?bkv ?bkh) 2))
-  (test (rook-between ?wkv ?wkh ?wrv ?wrh ?bkv ?bkh))
-  (test (> (length$ (find-region ?wkv ?wkh ?wrv ?wrh ?bkv ?bkh)) 4))
+  (test (and (> (king-against-king ?wkv ?wkh ?bkv ?bkh) 2)
+	     (rook-between ?wkv ?wkh ?wrv ?wrh ?bkv ?bkh)
+	     (> (length$ (find-region ?wkv ?wkh ?wrv ?wrh ?bkv ?bkh)) 4)))
   =>
   (make-move king white (find-best-white-king-move ?wkv ?wkh ?wrv ?wrh
 						   ?bkv ?bkh))
@@ -907,10 +898,11 @@ so play best rook move."
 	  (horizontal ?wrh))
   (figure (sortof king) (colour black) (vertical ?bkv)
 	  (horizontal ?bkh))
-  (test (> (king-against-king ?wkv ?wkh ?bkv ?bkh) 2))
-  (test (or (not (rook-between ?wkv ?wkh ?wrv ?wrh ?bkv ?bkh))
-	    (= (length$ (find-region ?wkv ?wkh ?wrv ?wrh ?bkv ?bkh))
-	       4)))
+  (test (and (> (king-against-king ?wkv ?wkh ?bkv ?bkh) 2)
+	     (or (not (rook-between ?wkv ?wkh ?wrv ?wrh ?bkv ?bkh))
+		 (= (length$ (find-region ?wkv ?wkh ?wrv ?wrh
+					  ?bkv ?bkh))
+		    4))))
   =>
   (make-move rook white (find-best-rook-move ?wkv ?wkh ?wrv ?wrh
 					     ?bkv ?bkh))
@@ -926,10 +918,10 @@ but has a move to leave edge - play it."
 	  (horizontal ?wrh))
   (figure (sortof king) (colour black) (vertical ?bkv)
 	  (horizontal ?bkh))
-  (test (on-edge ?wkv ?wkh))
-  (test (not (on-edge ?wrv ?wrh)))
-  (test (= (king-against-king ?wkv ?wkh ?bkv ?bkh) 2))
-  (test (not (rook-must-move ?wkv ?wkh ?wrv ?wrh ?bkv ?bkh)))
+  (test (and (on-edge ?wkv ?wkh)
+	     (not (on-edge ?wrv ?wrh))
+	     (= (king-against-king ?wkv ?wkh ?bkv ?bkh) 2)
+	     (not (rook-must-move ?wkv ?wkh ?wrv ?wrh ?bkv ?bkh))))
   =>
   (make-move king white (find-best-white-king-move ?wkv ?wkh ?wrv ?wrh
 						   ?bkv ?bkh))
@@ -959,12 +951,12 @@ but has a move to leave edge - play it."
 	  (horizontal ?wrh))
   (figure (sortof king) (colour black) (vertical ?bkv)
 	  (horizontal ?bkh))
-  (test (rook-attacked ?wrv ?wrh ?bkv ?bkh))
-  (test (not (rook-must-move ?wkv ?wkh ?wrv ?wrh ?bkv ?bkh)))
-  (test (not (on-edge ?wrv ?wrh)))
-  (test (> (length$ (check-white-king-moves ?wkv ?wkh ?wrv ?wrh
-					    ?bkv ?bkh))
-	   0))
+  (test (and (rook-attacked ?wrv ?wrh ?bkv ?bkh)
+	     (not (rook-must-move ?wkv ?wkh ?wrv ?wrh ?bkv ?bkh))
+	     (not (on-edge ?wrv ?wrh))
+	     (> (length$ (check-white-king-moves ?wkv ?wkh ?wrv ?wrh
+						 ?bkv ?bkh))
+		0)))
   =>
   (make-move king white (find-best-white-king-move ?wkv ?wkh ?wrv ?wrh
 						   ?bkv ?bkh))
